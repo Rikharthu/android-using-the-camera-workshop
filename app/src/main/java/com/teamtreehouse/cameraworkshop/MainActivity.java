@@ -35,24 +35,39 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
         ButterKnife.bind(this);
     }
 
+    // Returned to this activity after using startActivityForResult()
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
 
+        // 1. check if photo/video was succesfully taken (started activity resulted with RESULT_OK
         if (resultCode == RESULT_OK) {
+            // 2. check what we requested from started activity (which request code did we attach)
+
             if (requestCode == REQUEST_TAKE_PHOTO || requestCode == REQUEST_PICK_PHOTO) {
+                // handle both request - to take photo or pick a photo from gallery
+
+                // if data is not null, then we know that resulted activity was
+                // asked to pick a photo from a gallery rather than take a new one from the camera
                 if (data != null) {
                     mMediaUri = data.getData();
                 }
+                // if resulted activity was camera, then mMediaUri already stores image
+                // and data variable is null
 
+                // start ViewImageActivity to view photo
                 Intent intent = new Intent(this, ViewImageActivity.class);
                 intent.setData(mMediaUri);
                 startActivity(intent);
             }
             else if (requestCode == REQUEST_TAKE_VIDEO) {
+                // handle the result of recorded video
+
+                // ask videoplayer activities to play our video
                 Intent intent = new Intent(Intent.ACTION_VIEW, mMediaUri);
                 intent.setDataAndType(mMediaUri, "video/*");
                 startActivity(intent);
@@ -72,39 +87,65 @@ public class MainActivity extends AppCompatActivity {
 
     @OnClick(R.id.takePhoto)
     void takePhoto() {
+        // We request Camera application (via implicit intent and filters)
+        // to take a photo and output it in our mMediaUri by specifying intent parameters
+        // we do not care how, but we know that Camera app will handle this.
+
+        // prepare file uri, which points to a temporary file
         mMediaUri = getOutputMediaFileUri(MEDIA_TYPE_IMAGE);
         if (mMediaUri == null) {
+            // media storage unavailable
             Toast.makeText(this,
                     "There was a problem accessing your device's external storage.",
                     Toast.LENGTH_LONG).show();
         }
         else {
+            // declare implicit intent to use any available camera app
             Intent takePhotoIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+            // specify the camera app where to store the requested media
+            // data will be output to our mMediaUri
             takePhotoIntent.putExtra(MediaStore.EXTRA_OUTPUT, mMediaUri);
             startActivityForResult(takePhotoIntent, REQUEST_TAKE_PHOTO);
+            // REQUEST_TAKE_PHOTO will be returned in onActivityResult() when the activity exits.
         }
     }
 
     @OnClick(R.id.takeVideo)
     void takeVideo() {
+        // retrieve uri to temporary file
         mMediaUri = getOutputMediaFileUri(MEDIA_TYPE_VIDEO);
         if (mMediaUri == null) {
+            // temporary file was not created
             Toast.makeText(this,
                     "There was a problem accessing your device's external storage.",
                     Toast.LENGTH_LONG).show();
         }
         else {
+            // ask apps that can record video to shoot one for us
             Intent takeVideoIntent = new Intent(MediaStore.ACTION_VIDEO_CAPTURE);
+            // specify parameters:
+            // 1. output to our temporary file specified by mMediaUri
             takeVideoIntent.putExtra(MediaStore.EXTRA_OUTPUT, mMediaUri);
+            // set max duration
             takeVideoIntent.putExtra(MediaStore.EXTRA_DURATION_LIMIT, 10);
+            // pass an intent
             startActivityForResult(takeVideoIntent, REQUEST_TAKE_VIDEO);
         }
     }
 
     @OnClick(R.id.pickPhoto)
     void pickPhoto() {
+        // we want another app to get content (file)
         Intent pickPhotoIntent = new Intent(Intent.ACTION_GET_CONTENT);
+        // specify which type of files we want (else song or .doc could also be selected)
         pickPhotoIntent.setType("image/*");
+        // We use image/* (the actual "*" after backslash) to tell that we want all formats of images:
+        // image/jpeg
+        // image/bmp
+        // image/gif
+        // image/jpg
+        // image/png
+
         startActivityForResult(pickPhotoIntent, REQUEST_PICK_PHOTO);
     }
 
@@ -112,6 +153,8 @@ public class MainActivity extends AppCompatActivity {
     void pickVideo() {
         Intent pickVideoIntent = new Intent(Intent.ACTION_GET_CONTENT);
         pickVideoIntent.setType("video/*");
+        /* Capturing a photo or video gives us a path directly to the file
+        Whereas picking from the gallery gives us Content URI */
         startActivityForResult(pickVideoIntent, REQUEST_PICK_VIDEO);
     }
 
@@ -128,6 +171,7 @@ public class MainActivity extends AppCompatActivity {
             String fileType = "";
             String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
 
+            // depending on media type set corresponding extension for the file
             if (mediaType == MEDIA_TYPE_IMAGE){
                 fileName = "IMG_"+ timeStamp;
                 fileType = ".jpg";
@@ -141,6 +185,7 @@ public class MainActivity extends AppCompatActivity {
             // 3. Create the file
             File mediaFile;
             try {
+                // construct temporary file with passed data: prefix, suffix, directory
                 mediaFile = File.createTempFile(fileName, fileType, mediaStorageDir);
                 Log.i(TAG, "File: " + Uri.fromFile(mediaFile));
 
@@ -157,8 +202,10 @@ public class MainActivity extends AppCompatActivity {
         return null;
     }
 
+    /** Check if external storage is avaliable */
     private boolean isExternalStorageAvailable() {
         String state = Environment.getExternalStorageState();
+        // sd card mounted?
         if(Environment.MEDIA_MOUNTED.equals(state)) {
             return true;
         }
